@@ -35,7 +35,7 @@ FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__fi
 app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path='')
 CORS(app)
 
-DATAROOT = r'D:\major_project\data'
+DATAROOT = os.environ.get("DATA_ROOT", r"D:\major_project\data")
 loader   = None
 
 def _load_dataset():
