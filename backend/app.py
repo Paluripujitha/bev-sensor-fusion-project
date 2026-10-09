@@ -375,53 +375,58 @@ def emergency_contact():
 
 @app.route('/api/emergency_call', methods=['POST'])
 def emergency_call():
-    global emergency_contact_db
     email = emergency_contact_db.get('email')
     username = emergency_contact_db.get('username', 'User')
-    
-    if not email:
-        return jsonify({'error': 'No emergency email saved'}), 400
-        
-    print(f"\n[URGENT] *** INITIATING EMERGENCY EMAIL TO {email} ***")
-    
-    emergency_msg = f"'{username}' is in danger"
 
-    email_sent = False
-    
+    if not email:
+        return jsonify({
+            'status': 'error',
+            'error': 'No emergency email saved',
+            'email_sent': False
+        }), 400
+
+    # Read credentials securely from environment variables
+    sender_email = os.environ.get('GMAIL_ADDRESS')
+    sender_password = os.environ.get('GMAIL_APP_PASSWORD')
+
+    if not sender_email or not sender_password:
+        return jsonify({
+            'status': 'error',
+            'error': 'Email credentials are not configured',
+            'email_sent': False
+        }), 503
+
     import smtplib
     from email.mime.text import MIMEText
-    
-    # -------------------------------------------------------------------------
-    # NOTE FOR USER:
-    # To make this send a REAL email, put your Gmail and App Password here:
-    # -------------------------------------------------------------------------
-    sender_email = "paluripujitha3@gmail.com"
-    sender_password = "tjez xaji hwqw fvnn" 
-    
-    try:
-        msg = MIMEText(emergency_msg)
-        msg['Subject'] = 'Emergency Alert'
-        msg['From'] = sender_email
-        msg['To'] = email
 
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+    emergency_msg = f"'{username}' is in danger"
+
+    msg = MIMEText(emergency_msg)
+    msg['Subject'] = 'Emergency Alert'
+    msg['From'] = sender_email
+    msg['To'] = email
+
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=20) as server:
             server.login(sender_email, sender_password)
             server.send_message(msg)
-            
-        print(f"[URGENT] Real email successfully sent to {email}")
-        email_sent = True
-            
-    except Exception as e:
-        print(f"[URGENT] SMTP login failed: {str(e)}")
-        # Simulate success for the presentation so the UI shows green
-        email_sent = True
 
-    return jsonify({
-        'status': 'success', 
-        'message': f'Emergency alert triggered for {email}.',
-        'email_sent': email_sent
-    })
+        print(f"[URGENT] Email sent to {email}")
 
+        return jsonify({
+            'status': 'success',
+            'message': f'Emergency alert sent to {email}.',
+            'email_sent': True
+        }), 200
+
+    except Exception:
+        app.logger.exception("Emergency email delivery failed")
+
+        return jsonify({
+            'status': 'error',
+            'error': 'Could not send the emergency email. Check server logs.',
+            'email_sent': False
+        }), 502
 
 if __name__ == '__main__':
     print("\n" + "="*60)
