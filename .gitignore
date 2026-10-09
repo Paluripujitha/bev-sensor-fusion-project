@@ -1,0 +1,27 @@
+# Python temporary files
+
+**pycache**/
+*.pyc
+.venv/
+venv/
+
+# Private configuration
+
+.env
+
+# Large datasets
+
+data/
+*.tar
+*.zip
+
+# Local tools
+
+Git/
+ngrok.exe
+
+# Logs and local database
+
+training_log.txt
+PyWhatKit_DB.txt
+Accident_Detection/Dataset/

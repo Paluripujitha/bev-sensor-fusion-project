@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>BEVFusion — Professional Autonomous Driving Dashboard</title>
+    <meta name="description" content="BEV-Based Sensor Fusion for Robust 3D Object Detection using nuScenes Mini." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+    <!-- APP SHELL -->
+    <div class="app-shell">
+
+        <!-- LEFT SIDEBAR -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <span class="brand-icon">🚘</span>
+                <div>
+                    <div class="brand-name">BEVFusion</div>
+                    <div class="brand-sub">AV Perception Prototype</div>
+                </div>
+            </div>
+
+            <div class="status-badge" id="sys-status">
+                <span class="status-dot dot-online"></span>
+                <span id="status-text">LOADING …</span>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a class="nav-item active" data-section="pipeline" href="#">🔗 Pipeline Overview</a>
+                <a class="nav-item" data-section="dashboard" href="#">🏠 Main Dashboard</a>
+                <a class="nav-item" data-section="cameras" href="#">📷 Camera Views</a>
+                <a class="nav-item" data-section="lidar" href="#">📡 LiDAR Point Cloud</a>
+                <a class="nav-item" data-section="bev" href="#">🗺️ BEV View</a>
+                <a class="nav-item" data-section="view3d" href="#">🧊 3D View</a>
+                <a class="nav-item" data-section="objects" href="#">🎯 Detected Objects</a>
+                <a class="nav-item" data-section="weather" href="#">🌧️ Weather Robustness</a>
+                <a class="nav-item" data-section="dhip" href="#">⚡ Adaptive / DHIP</a>
+                <a class="nav-item" data-section="sysinfo" href="#">🖥️ Settings & Info</a>
+            </nav>
+
+            <div class="sidebar-controls">
+                <label class="ctrl-label">Scene</label>
+                <select id="scene-select" class="ctrl-select">
+                    <option value="">— Loading scenes —</option>
+                </select>
+
+                <label class="ctrl-label">Sample</label>
+                <select id="sample-select" class="ctrl-select">
+                    <option value="">— Select scene first —</option>
+                </select>
+
+                <label class="ctrl-label">Weather Mode</label>
+                <select id="weather-select" class="ctrl-select">
+                    <option value="clear">☀️ Clear (Baseline)</option>
+                    <option value="fog">🌫️ Fog</option>
+                    <option value="rain">🌧️ Rain</option>
+                    <option value="poor_visibility">🌑 Poor Visibility</option>
+                </select>
+
+                <label class="ctrl-label">Weather Severity: <span id="sev-val">0.0</span></label>
+                <input type="range" id="severity-slider" min="0" max="1" step="0.05" value="0" class="ctrl-slider" />
+
+                <!-- Accident Integration in Sidebar -->
+                <label class="ctrl-label" style="margin-top: 5px;">Accident Image (Dataset)</label>
+                <select id="accident-select" class="ctrl-select">
+                    <option value="">— None (No Accident Check) —</option>
+                </select>
+                <img id="accident-preview-sidebar" src="" class="hidden fit-img" style="max-height: 80px; margin-top: 5px; border-radius: 4px; border: 1px solid var(--border);" />
+
+                <button id="run-btn" class="run-btn" disabled>
+                    <span id="run-btn-text">▶ RUN PIPELINE (3D + ACCIDENT)</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- MAIN AREA -->
+        <main class="main-area">
+
+            <!-- ════ PIPELINE VISUALIZATION ════ -->
+            <section id="section-pipeline" class="content-section active">
+                <h2 class="section-title">BEV-Based Sensor Fusion Pipeline</h2>
+
+                <div class="pipeline-grid">
+                    <!-- Step 1 -->
+                    <div class="pipe-card" id="pc-1">
+                        <div class="pc-header">STEP 1 — CAMERA INPUT</div>
+                        <div class="pc-body">
+                            <img id="pl-cam-img" src="" class="hidden fit-img" />
+                            <div id="pl-cam-ph" class="placeholder-msg">Select a sample</div>
+                            <div class="pc-metrics">
+                                <span class="badge">6-Camera System</span>
+                                <span id="pl-cam-names" class="hint">Front, Front-Left, Front-Right, Back, Back-Left,
+                                    Back-Right</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pipe-arrow">➔</div>
+
+                    <!-- Step 2 -->
+                    <div class="pipe-card" id="pc-2">
+                        <div class="pc-header">STEP 2 — LiDAR INPUT</div>
+                        <div class="pc-body">
+                            <img id="pl-lidar-img" src="" class="hidden fit-img" />
+                            <div id="pl-lidar-ph" class="placeholder-msg">Select a sample</div>
+                            <div class="pc-metrics">
+                                <span class="badge" id="pl-lidar-pts">0 points</span>
+                                <span id="pl-lidar-token" class="hint mono truncate">Token: —</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pipe-arrow">➔</div>
+
+                    <!-- Step 3 -->
+                    <div class="pipe-card" id="pc-3">
+                        <div class="pc-header">STEP 3 — FEATURE EXTRACTION</div>
+                        <div class="pc-body flex-col-center">
+                            <div class="fe-branch">
+                                <div>Camera Backbone</div>
+                                <div>↓</div>
+                                <div class="badge">Camera Features</div>
+                                <img id="pl-cam-feat" src="" class="hidden fit-img"
+                                    style="max-height:80px; margin-top:5px;" />
+                            </div>
+                            <div class="fe-branch" style="margin-top:10px;">
+                                <div>LiDAR Backbone</div>
+                                <div>↓</div>
+                                <div class="badge lidar-badge">LiDAR Features</div>
+                                <img id="pl-lidar-feat" src="" class="hidden fit-img"
+                                    style="max-height:80px; margin-top:5px;" />
+                            </div>
+                            <div id="pl-fe-ph" class="placeholder-msg" style="margin-top:10px;">Awaiting execution</div>
+                        </div>
+                    </div>
+                    <div class="pipe-arrow">➔</div>
+
+                    <!-- Step 4 -->
+                    <div class="pipe-card" id="pc-4">
+                        <div class="pc-header">STEP 4 — BEV REPRESENTATION</div>
+                        <div class="pc-body">
+                            <div class="fe-branch">
+                                <div>Cam BEV + LiDAR BEV</div>
+                                <div>↓</div>
+                                <div class="badge fusion-badge">Fused BEV</div>
+                            </div>
+                            <img id="pl-fused-feat" src="" class="hidden fit-img"
+                                style="max-height:80px; margin-top:10px;" />
+                            <img id="pl-bev-img" src="" class="hidden fit-img" style="margin-top:10px;" />
+                            <div id="pl-bev-ph" class="placeholder-msg" style="margin-top:10px;">Awaiting execution
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pipe-arrow">➔</div>
+
+                    <!-- Step 5 -->
+                    <div class="pipe-card" id="pc-5">
+                        <div class="pc-header">STEP 5 — 3D OBJECT DETECTION</div>
+                        <div class="pc-body">
+                            <div class="table-wrap mini-table-wrap">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Box</th>
+                                            <th>Cls</th>
+                                            <th>Loss</th>
+                                            <th>Acc</th>
+                                            <th>Conf</th>
+                                            <th>Dist</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pl-det-tbody">
+                                        <tr>
+                                            <td colspan="6" class="empty-row">No data</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pipe-arrow">➔</div>
+
+                    <!-- Step 6 -->
+                    <div class="pipe-card" id="pc-6">
+                        <div class="pc-header">STEP 6 — FINAL OUTPUT</div>
+                        <div class="pc-body">
+                            <div class="table-wrap mini-table-wrap">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Class</th>
+                                            <th>Loss/Acc</th>
+                                            <th>Pos</th>
+                                            <th>Orient</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pl-out-tbody">
+                                        <tr>
+                                            <td colspan="5" class="empty-row">No data</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ════ DASHBOARD ════ -->
+            <section id="section-dashboard" class="content-section">
+                <h2 class="section-title">Main Dashboard</h2>
+                <div class="dash-grid-top">
+                    <div class="card col-span-2">
+                        <div class="card-head"><span>📷 FRONT CAMERA</span></div>
+                        <div class="img-frame">
+                            <img id="dash-cam-img" src="" class="fit-img hidden" />
+                            <div class="placeholder-msg" id="dash-cam-ph">Awaiting data</div>
+                        </div>
+                    </div>
+                    <div class="card col-span-2">
+                        <div class="card-head"><span>📡 LiDAR BIRD'S-EYE VIEW</span></div>
+                        <div class="img-frame dark-frame">
+                            <img id="dash-lidar-img" src="" class="fit-img hidden" />
+                            <div class="placeholder-msg" id="dash-lidar-ph">Awaiting data</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Integrated Accident Result -->
+                <div class="card" style="margin-top: 1.5rem;" id="integrated-accident-card">
+                    <div class="card-head"><span>🚨 ACCIDENT DETECTION RESULT</span></div>
+                    <div class="accident-result-box" id="integrated-accident-res">
+                        <div class="placeholder-msg">Run pipeline with an accident image selected to see results</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ════ CAMERA VIEWS ════ -->
+            <section id="section-cameras" class="content-section">
+                <h2 class="section-title">1. CAMERA VIEWS — MULTI CAMERA</h2>
+                <div class="cam-grid" id="cam-grid">
+                    <div class="cam-cell" id="cc-CAM_FRONT_LEFT">
+                        <div class="cam-label">Front Left</div>
+                        <img class="cam-img" src="" />
+                        <div class="cam-placeholder">No data</div>
+                    </div>
+                    <div class="cam-cell" id="cc-CAM_FRONT">
+                        <div class="cam-label cam-selected-lbl">Front</div>
+                        <img class="cam-img" src="" />
+                        <div class="cam-placeholder">No data</div>
+                    </div>
+                    <div class="cam-cell" id="cc-CAM_FRONT_RIGHT">
+                        <div class="cam-label">Front Right</div>
+                        <img class="cam-img" src="" />
+                        <div class="cam-placeholder">No data</div>
+                    </div>
+                    <div class="cam-cell" id="cc-CAM_BACK_LEFT">
+                        <div class="cam-label">Back Left</div>
+                        <img class="cam-img" src="" />
+                        <div class="cam-placeholder">No data</div>
+                    </div>
+                    <div class="cam-cell" id="cc-CAM_BACK">
+                        <div class="cam-label">Back</div>
+                        <img class="cam-img" src="" />
+                        <div class="cam-placeholder">No data</div>
+                    </div>
+                    <div class="cam-cell" id="cc-CAM_BACK_RIGHT">
+                        <div class="cam-label">Back Right</div>
+                        <img class="cam-img" src="" />
+                        <div class="cam-placeholder">No data</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ════ LIDAR ════ -->
+            <section id="section-lidar" class="content-section">
+                <h2 class="section-title">2. LiDAR POINT CLOUD</h2>
+                <div class="card">
+                    <div class="card-head">
+                        <span>LiDAR TOP</span>
+                        <span class="badge" id="li-badge-pts">—</span>
+                    </div>
+                    <div class="img-frame dark-frame tall-frame">
+                        <img id="lidar-full-img" src="" class="fit-img hidden" />
+                        <div class="placeholder-msg" id="lidar-full-ph">No point cloud loaded</div>
+                    </div>
+                    <div class="info-grid">
+                        <div class="info-item"><span class="info-key">Sensor</span><span id="li-sensor"
+                                class="info-val">LIDAR_TOP</span></div>
+                        <div class="info-item"><span class="info-key">Points</span><span id="li-pts"
+                                class="info-val">—</span></div>
+                        <div class="info-item"><span class="info-key">Range</span><span class="info-val">±50 m</span>
+                        </div>
+                        <div class="info-item"><span class="info-key">Sample ID</span><span id="li-sample"
+                                class="info-val truncate">—</span></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ════ BEV ════ -->
+            <section id="section-bev" class="content-section">
+                <h2 class="section-title">3. BEV — BIRD'S-EYE VIEW</h2>
+                <div class="card">
+                    <div class="card-head"><span>Fused BEV Representation</span></div>
+                    <div class="bev-wrap">
+                        <div style="position:relative;">
+                            <canvas id="bev-canvas" width="600" height="600"></canvas>
+                        </div>
+                        <div class="bev-legend" id="bev-legend"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ════ 3D VIEW ════ -->
+            <section id="section-view3d" class="content-section">
+                <h2 class="section-title">4. 3D VIEW</h2>
+                <div class="card">
+                    <div class="card-head">
+                        <span>Interactive 3D Perception Scene</span>
+                        <span id="3d-hint-badge" class="badge" style="background:rgba(59, 130, 246, 0.15);color:#60a5fa;">
+                            💡 Click any 3D vehicle to inspect metrics
+                        </span>
+                    </div>
+                    <div style="position: relative;">
+                        <canvas id="canvas3d" width="900" height="500"></canvas>
+                        
+                        <!-- Floating 3D Detail Popup Card -->
+                        <div id="obj-detail-card" class="obj-detail-popup hidden">
+                            <div class="popup-header">
+                                <span id="pop-title" class="pop-title">Car 1</span>
+                                <button id="pop-close" class="pop-close">✕</button>
+                            </div>
+                            <div class="popup-body">
+                                <div class="pop-row"><span class="pop-k">Object Class:</span><span id="pop-cls" class="pop-v">—</span></div>
+                                <div class="pop-row"><span class="pop-k">Loss (Regression + Focal):</span><span id="pop-loss" class="pop-v loss-text">—</span></div>
+                                <div class="pop-row"><span class="pop-k">Detection Accuracy:</span><span id="pop-acc" class="pop-v acc-text">—</span></div>
+                                <div class="pop-row"><span class="pop-k">Confidence Score:</span><span id="pop-conf" class="pop-v conf-text">—</span></div>
+                                <div class="pop-row"><span class="pop-k">3D Distance:</span><span id="pop-dist" class="pop-v">—</span></div>
+                                <div class="pop-row"><span class="pop-k">Position (X, Y, Z):</span><span id="pop-pos" class="pop-v mono">—</span></div>
+                                <div class="pop-row"><span class="pop-k">3D Size (W, L, H):</span><span id="pop-size" class="pop-v mono">—</span></div>
+                                <div class="pop-row"><span class="pop-k">Orientation (Yaw):</span><span id="pop-yaw" class="pop-v">—</span></div>
+                                <div class="pop-row"><span class="pop-k">Frustum LiDAR Points:</span><span id="pop-pts" class="pop-v">—</span></div>
+                                <div class="pop-row"><span class="pop-k">DHIP Probing State:</span><span id="pop-dhip" class="pop-v">—</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ctrl-3d">
+                        <button class="mini-btn" id="btn-reset-3d">↺ Reset View</button>
+                        <span class="hint">Click 3D vehicle to inspect metrics · Drag to rotate · Scroll to zoom</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ════ DETECTED OBJECTS ════ -->
+            <section id="section-objects" class="content-section">
+                <h2 class="section-title">5. DETECTED OBJECTS</h2>
+                <div class="card">
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Class</th>
+                                    <th>Loss</th>
+                                    <th>Accuracy</th>
+                                    <th>Confidence</th>
+                                    <th>Distance (m)</th>
+                                    <th>Position (x,y,z)</th>
+                                    <th>Size (l,w,h)</th>
+                                    <th>Orientation</th>
+                                    <th>Velocity</th>
+                                </tr>
+                            </thead>
+                            <tbody id="obj-tbody">
+                                <tr>
+                                    <td colspan="10" class="empty-row">Run detection to populate</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ════ PERFORMANCE ════ -->
+            <section id="section-perf" class="content-section">
+                <h2 class="section-title">PERFORMANCE COMPARISON</h2>
+                <div class="perf-compare">
+                    <div class="card perf-card">
+                        <div class="card-head">Baseline BEV Fusion</div>
+                        <div class="perf-metric"><span>Inference Latency</span><strong id="p-bl-lat">—</strong></div>
+                        <div class="perf-metric"><span>False Negatives</span><strong id="p-bl-fn">—</strong></div>
+                    </div>
+                    <div class="card perf-card proposed">
+                        <div class="card-head">Adaptive + Weather-Robust</div>
+                        <div class="perf-metric"><span>Total Processing Time</span><strong id="p-pr-lat">—</strong>
+                        </div>
+                        <div class="perf-metric"><span>False Negatives</span><strong id="p-pr-fn">—</strong></div>
+                        <div class="perf-metric"><span>Hard Instances</span><strong id="p-hard">—</strong></div>
+                    </div>
+                </div>
+                <div class="card" style="margin-top:1rem">
+                    <div class="card-head">Latency Breakdown</div>
+                    <canvas id="perf-chart" height="100"></canvas>
+                </div>
+            </section>
+
+            <!-- ════ WEATHER ROBUSTNESS ════ -->
+            <section id="section-weather" class="content-section">
+                <h2 class="section-title">WEATHER ROBUSTNESS</h2>
+                <div class="weather-compare">
+                    <div class="card">
+                        <div class="card-head">Baseline Result</div>
+                        <div class="img-frame"><img id="w-orig-img" src="" class="fit-img hidden" />
+                            <div class="placeholder-msg">Original</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-head">Weather-Robust Result</div>
+                        <div class="img-frame"><img id="w-deg-img" src="" class="fit-img hidden" />
+                            <div class="placeholder-msg">Degraded</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card" style="margin-top:1rem">
+                    <div class="card-head">Reliability & Fusion Weights</div>
+                    <div class="weight-bars">
+                        <div class="weight-row"><span class="weight-label">Camera Reliability</span>
+                            <div class="weight-bar-bg">
+                                <div class="weight-bar cam-bar" id="w-cam-bar"></div>
+                            </div><span class="weight-num" id="w-cam-num">—</span>
+                        </div>
+                        <div class="weight-row"><span class="weight-label">LiDAR Reliability</span>
+                            <div class="weight-bar-bg">
+                                <div class="weight-bar lidar-bar" id="w-lidar-bar"></div>
+                            </div><span class="weight-num" id="w-lidar-num">—</span>
+                        </div>
+                        <div class="weight-row"><span class="weight-label">Camera Fusion Weight</span>
+                            <div class="weight-bar-bg">
+                                <div class="weight-bar cam-bar" id="w-camw-bar"></div>
+                            </div><span class="weight-num" id="w-camw-num">—</span>
+                        </div>
+                        <div class="weight-row"><span class="weight-label">LiDAR Fusion Weight</span>
+                            <div class="weight-bar-bg">
+                                <div class="weight-bar lidar-bar" id="w-lidarw-bar"></div>
+                            </div><span class="weight-num" id="w-lidarw-num">—</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ════ DHIP ════ -->
+            <section id="section-dhip" class="content-section">
+                <h2 class="section-title">ADAPTIVE / DHIP PROCESSING</h2>
+                <div class="dhip-grid">
+                    <div class="card">
+                        <div class="card-head">Difficulty Map</div>
+                        <div class="img-frame">
+                            <img id="diff-img" src="" class="fit-img hidden" />
+                            <div class="placeholder-msg" id="diff-ph">Awaiting detection</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-head">Refinement Metrics</div>
+                        <div class="dhip-metrics">
+                            <div class="perf-metric"><span>Easy Instances</span><strong id="dhip-easy">—</strong></div>
+                            <div class="perf-metric"><span>Hard Instances</span><strong id="dhip-hard">—</strong></div>
+                            <div class="perf-metric"><span>Baseline Latency</span><strong id="dhip-bl-lat">—</strong>
+                            </div>
+                            <div class="perf-metric"><span>Adaptive Latency</span><strong id="dhip-ad-lat">—</strong>
+                            </div>
+                            <div class="perf-metric"><span>Latency Reduction</span><strong id="dhip-red">—</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ════ SYSTEM INFO ════ -->
+            <section id="section-sysinfo" class="content-section">
+                <h2 class="section-title">6. SYSTEM INFO</h2>
+                <div class="card">
+                    <div class="sys-grid">
+                        <div class="sys-row"><span class="sys-k">Scene ID</span><span id="si-scene"
+                                class="sys-v">—</span></div>
+                        <div class="sys-row"><span class="sys-k">Sample ID (Token)</span><span id="si-sample"
+                                class="sys-v mono">—</span></div>
+                        <div class="sys-row"><span class="sys-k">Timestamp</span><span id="si-ts" class="sys-v">—</span>
+                        </div>
+                        <div class="sys-row"><span class="sys-k">Camera Sensor</span><span id="si-cam"
+                                class="sys-v">—</span></div>
+                        <div class="sys-row"><span class="sys-k">LiDAR Sensor</span><span id="si-lidar"
+                                class="sys-v">—</span></div>
+                        <div class="sys-row"><span class="sys-k">Number of LiDAR Points</span><span id="si-pts"
+                                class="sys-v">—</span></div>
+                        <div class="sys-row"><span class="sys-k">Image Resolution</span><span id="si-res"
+                                class="sys-v">—</span></div>
+                        <div class="sys-row"><span class="sys-k">Processing Time</span><span id="si-time"
+                                class="sys-v">—</span></div>
+                        <div class="sys-row"><span class="sys-k">Model Used</span><span id="si-model"
+                                class="sys-v">—</span></div>
+                        <div class="sys-row"><span class="sys-k">Device</span><span id="si-device"
+                                class="sys-v">—</span></div>
+                    </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="cam-modal" class="modal hidden">
+        <div class="modal-bg" id="modal-bg"></div>
+        <div class="modal-box">
+            <button class="modal-close" id="modal-close">✕</button>
+            <img id="modal-img" src="" />
+            <div id="modal-label" class="modal-label"></div>
+        </div>
+    </div>
+
+    <!-- Emergency Setup Modal (On Load) -->
+    <div id="setup-modal" class="modal hidden">
+        <div class="modal-bg"></div>
+        <div class="modal-box emergency-box" style="background: var(--bg2);">
+            <h2 style="color: var(--text); margin-top: 0;">📞 Emergency Contact Setup</h2>
+            <p style="color: var(--muted); margin-bottom: 20px;">Please configure your details for automatic accident alerts.</p>
+            <input type="text" id="setup-name-input" class="ctrl-input" placeholder="Enter your name (e.g. Pujitha)" style="margin-bottom: 10px;" />
+            <input type="email" id="setup-email-input" class="ctrl-input" placeholder="Enter emergency email" />
+            <button id="btn-setup-save" class="run-btn" style="margin-top: 20px; width: 100%;">Save Contact</button>
+        </div>
+    </div>
+
+    <!-- Emergency Alert Modal -->
+    <div id="emergency-modal" class="modal hidden">
+        <div class="modal-bg"></div>
+        <div class="modal-box emergency-box">
+            <h2 style="color: #ff4757; margin-top: 0;">🚨 CRITICAL ALERT 🚨</h2>
+            <p>An accident has been detected with high confidence.</p>
+            <p>Would you like to dispatch emergency services to your saved contact?</p>
+            <p><strong id="em-modal-name"></strong>'s emergency contact: <strong id="em-modal-number"></strong></p>
+            <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center;">
+                <button id="btn-call-emergency" class="run-btn" style="background: #ff4757; border-color: #ff4757;">INITIATE CALL</button>
+                <button id="btn-cancel-emergency" class="mini-btn">CANCEL</button>
+            </div>
+            <div id="em-call-status" style="margin-top: 15px; font-weight: bold;"></div>
+        </div>
+    </div>
+
+    <script src="app.js?v=CLICK_ONLY_V4"></script>
+</body>
+
+</html>

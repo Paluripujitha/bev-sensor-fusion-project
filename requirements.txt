@@ -1,0 +1,11 @@
+torch>=2.0.0
+torchvision
+nuscenes-devkit
+flask
+flask-cors
+numpy<2.0.0
+pandas
+opencv-python
+scipy
+matplotlib
+pillow
